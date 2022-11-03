@@ -30,7 +30,8 @@ if (!(Test-Path -Path $rabbitmq_dir))
     & $rabbitmq_plugins_cmd enable rabbitmq_management
 }
 
-(Get-Content -Raw -Path $advanced_config_in) -Replace '@@PWD@@', $pwd | Set-Content -Path $advanced_config_out
-(Get-Content -Raw -Path $rabbitmq_conf_in) -Replace '@@PWD@@', $pwd | Set-Content -Path $rabbitmq_conf_out
+$pwd_slashes = $PSScriptRoot -Replace '\\','/'
+(Get-Content -Raw -Path $advanced_config_in) -Replace '@@PWD@@', $pwd_slashes | Set-Content -Path $advanced_config_out
+(Get-Content -Raw -Path $rabbitmq_conf_in) -Replace '@@PWD@@', $pwd_slashes | Set-Content -Path $rabbitmq_conf_out
 
 & $rabbitmq_server_cmd
