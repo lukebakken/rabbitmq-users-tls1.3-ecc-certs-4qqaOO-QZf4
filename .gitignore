@@ -4,3 +4,4 @@
 rabbitmq.conf
 *.xz
 rabbitmq_server*/
+*.zip
