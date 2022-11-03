@@ -59,7 +59,6 @@ loop(TlsSocket) ->
             loop(TlsSocket)
     after 5000 ->
         ok = io:format("[INFO] no data in last 5 seconds!~n", []),
-        custom_ssl_crl_cache:clear(),
         loop(TlsSocket)
     end.
 
