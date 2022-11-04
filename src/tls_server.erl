@@ -2,6 +2,8 @@
 
 -export([start/0, sni_fun/1]).
 
+-include_lib("kernel/include/logger.hrl").
+
 start() ->
     inets:start(),
     ssl:start(),
@@ -14,69 +16,76 @@ start() ->
         {verify, verify_peer},
         {fail_if_no_peer_cert, true}
     ],
-    ok = io:format("[INFO] before ssl:listen(9999, Opts)~n", []),
-    {ok, ListenSocket} = ssl:listen(9999, SslOpts),
-    ok = io:format("[INFO] after ssl:listen(9999, Opts)~n", []),
-    accept_and_handshake(ListenSocket).
+    ListenSocket = listen(SslOpts),
+    accept_and_handshake(SslOpts, ListenSocket).
 
-accept_and_handshake(ListenSocket) ->
-    ok = io:format("[INFO] before ssl:transport_accept~n", []),
+listen(SslOpts) ->
+    ?LOG_DEBUG("before ssl:listen, SslOpts: ~p", [SslOpts]),
+    {ok, ListenSocket} = ssl:listen(9999, SslOpts),
+    ?LOG_DEBUG("[INFO] after ssl:listen"),
+    ListenSocket.
+
+accept_and_handshake(SslOpts, ListenSocket) ->
+    ?LOG_DEBUG("before ssl:transport_accept"),
     {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket),
-    ok = io:format("[INFO] after ssl:transport_accept~n", []),
-    ok = io:format("[INFO] before ssl:handshake~n", []),
+    ?LOG_DEBUG("[INFO] after ssl:transport_accept"),
+    ?LOG_DEBUG("[INFO] before ssl:handshake"),
     Result =
         case ssl:handshake(TLSTransportSocket) of
             {ok, S, Ext} ->
-                ok = io:format("[INFO] ssl:handshake Ext: ~p~n", [Ext]),
+                ?LOG_INFO("ssl:handshake Ext: ~p~n", [Ext]),
                 {ok, S};
             {ok, _} = Res ->
                 Res;
             Error ->
-                ok = io:format("[ERROR] ssl:handshake Error: ~p~n", [Error]),
-                Error
+                ssl:shutdown(ListenSocket, read_write),
+                ssl:close(ListenSocket),
+                ?LOG_ERROR("ssl:handshake Error: ~p", [Error]),
+                NewSocket = listen(SslOpts),
+                accept_and_handshake(SslOpts, NewSocket)
         end,
     case Result of
         {error, _} ->
             ok = init:stop();
         {ok, TlsSocket} ->
-            ok = io:format("[INFO] after ssl:handshake, Socket: ~p~n", [TlsSocket]),
-            ok = io:format("[INFO] ssl:handshake sni_hostname: ~p~n", [get_sni_hostname(TlsSocket)]),
+            ?LOG_DEBUG("after ssl:handshake, Socket: ~p", [TlsSocket]),
+            ?LOG_DEBUG("ssl:handshake sni_hostname: ~p", [get_sni_hostname(TlsSocket)]),
             write_keylog(TlsSocket),
             ok = loop(TlsSocket),
-            accept_and_handshake(ListenSocket)
+            accept_and_handshake(SslOpts, ListenSocket)
     end.
 
 loop(TlsSocket) ->
-    ok = io:format("[INFO] top of loop/2~n", []),
+    ?LOG_DEBUG("top of loop/2"),
     receive
         {ssl_closed, TlsSocket} ->
-            ok = io:format("[INFO] shutdown/close socket~n", []),
+            ?LOG_DEBUG("shutdown/close socket"),
             ssl:shutdown(TlsSocket, read_write),
             ssl:close(TlsSocket),
             ok;
         Data ->
-            ok = io:format("[INFO] Data: ~p~n", [Data]),
+            ?LOG_INFO("Received Data: ~p", [Data]),
             loop(TlsSocket)
     after 5000 ->
-        ok = io:format("[INFO] no data in last 5 seconds!~n", []),
+        ?LOG_WARNING("no data in last 5 seconds!"),
         loop(TlsSocket)
     end.
 
 write_keylog(Socket) ->
-    ok = io:format("[INFO] writing keylog data to keylog.bin~n", []),
+    ?LOG_INFO("writing keylog data to keylog.bin"),
     KeylogItems1 =
         case ssl:connection_information(Socket, [keylog]) of
             {ok, [{keylog, KeylogItems0}]} ->
                 KeylogItems0;
             {ok, []} ->
-                ok = io:format("[WARNING] no keylog data!~n", []),
+                ?LOG_WARNING("[WARNING] no keylog data!"),
                 []
         end,
     ok = file:write_file("keylog.bin", [[KeylogItem, $\n] || KeylogItem <- KeylogItems1]),
     ok.
 
 sni_fun(ServerName) ->
-    ok = io:format("[INFO] sni_fun ServerName: ~p~n", [ServerName]),
+    ?LOG_DEBUG("[INFO] sni_fun ServerName: ~p", [ServerName]),
     [].
 
 get_sni_hostname(Socket) ->
@@ -86,6 +95,6 @@ get_sni_hostname(Socket) ->
         {ok, [{sni_hostname, Hostname}]} ->
             Hostname;
         Error ->
-            ok = io:format("[ERROR] ssl:connection_information Error: ~p~n", [Error]),
+            ?LOG_ERROR("ssl:connection_information Error: ~p", [Error]),
             undefined
     end.
