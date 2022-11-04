@@ -11,7 +11,7 @@ start() ->
         {cacertfile, "./certs/rootCA.pem"},
         {certfile, "./certs/cert.pem"},
         {keyfile, "./certs/key.pem"},
-        {reuseaddr, false},
+        {reuseaddr, true},
         {sni_fun, fun tls_server:sni_fun/1},
         {verify, verify_peer},
         {fail_if_no_peer_cert, true}
@@ -21,15 +21,25 @@ start() ->
 
 listen(SslOpts) ->
     ?LOG_DEBUG("before ssl:listen, SslOpts: ~p", [SslOpts]),
-    {ok, ListenSocket} = ssl:listen(9999, SslOpts),
-    ?LOG_DEBUG("[INFO] after ssl:listen"),
-    ListenSocket.
+    S = case ssl:listen(9999, SslOpts) of
+            {error, eaddrinuse}=Error ->
+                ?LOG_ERROR("ssl:listen eaddrinuse"),
+                timer:sleep(100),
+                listen(SslOpts);
+            {error, _}=Error ->
+                ?LOG_ERROR("ssl:listen exiting, Error: ~p", [Error]),
+                ok = init:stop();
+            {ok, S0} ->
+                S0
+        end,
+    ?LOG_DEBUG("after ssl:listen"),
+    S.
 
 accept_and_handshake(SslOpts, ListenSocket) ->
     ?LOG_DEBUG("before ssl:transport_accept"),
     {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket),
-    ?LOG_DEBUG("[INFO] after ssl:transport_accept"),
-    ?LOG_DEBUG("[INFO] before ssl:handshake"),
+    ?LOG_DEBUG("after ssl:transport_accept"),
+    ?LOG_DEBUG("before ssl:handshake"),
     Result =
         case ssl:handshake(TLSTransportSocket) of
             {ok, S, Ext} ->
@@ -45,7 +55,8 @@ accept_and_handshake(SslOpts, ListenSocket) ->
                 accept_and_handshake(SslOpts, NewSocket)
         end,
     case Result of
-        {error, _} ->
+        {error, _}=Error1 ->
+            ?LOG_ERROR("exiting, Error: ~p", [Error1]),
             ok = init:stop();
         {ok, TlsSocket} ->
             ?LOG_DEBUG("after ssl:handshake, Socket: ~p", [TlsSocket]),
@@ -85,7 +96,7 @@ write_keylog(Socket) ->
     ok.
 
 sni_fun(ServerName) ->
-    ?LOG_DEBUG("[INFO] sni_fun ServerName: ~p", [ServerName]),
+    ?LOG_DEBUG("sni_fun ServerName: ~p", [ServerName]),
     [].
 
 get_sni_hostname(Socket) ->

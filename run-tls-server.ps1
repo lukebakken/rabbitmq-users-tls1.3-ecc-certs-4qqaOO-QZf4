@@ -8,4 +8,4 @@ $tls_server_src = Join-Path -Path $PSScriptRoot -ChildPath 'src' | Join-Path -Ch
 
 & erlc +debug $tls_server_src
 
-& erl -noinput -kernel logger_level info -s tls_server start
+& erl -noinput -kernel logger_level debug -s tls_server start
