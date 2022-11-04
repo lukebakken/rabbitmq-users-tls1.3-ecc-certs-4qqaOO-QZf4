@@ -22,7 +22,7 @@ start() ->
 listen(SslOpts) ->
     ?LOG_DEBUG("before ssl:listen, SslOpts: ~p", [SslOpts]),
     S = case ssl:listen(9999, SslOpts) of
-            {error, eaddrinuse}=Error ->
+            {error, eaddrinuse} ->
                 ?LOG_ERROR("ssl:listen eaddrinuse"),
                 timer:sleep(100),
                 listen(SslOpts);

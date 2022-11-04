@@ -1,5 +1,5 @@
 # shellcheck disable=SC2155
-set -eux
+set -eu
 readonly curdir="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 
 openssl s_client -tls1_3 -connect localhost:5671 \
