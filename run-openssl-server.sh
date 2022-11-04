@@ -3,7 +3,7 @@
 set -eu
 
 readonly curdir="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-readonly tlshost="${1:-'*'}"
+readonly tlshost="${1:-*}"
 readonly tlsport="${2:-9999}"
 
 readonly certs_dir="$curdir/certs"
