@@ -9,8 +9,9 @@ start() ->
             {certfile,   "./certs/cert.pem"},
             {keyfile,    "./certs/key.pem"},
             {verify, verify_peer},
-            {fail_if_no_peer_cert, false},
-            {log_level, debug}],
+            {fail_if_no_peer_cert, true},
+            {log_level, debug}
+           ],
     {ok, ListenSocket} = ssl:listen(9999, Opts),
     {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket),
     {ok, _} = ssl:handshake(TLSTransportSocket),
